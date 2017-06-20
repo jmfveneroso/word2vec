@@ -22,11 +22,26 @@
 
 \section{Introdução}
 
+O problema do vocabulário, que deriva das propriedades de sinonímia e polissemia das linguagens
+naturais, representa um desafio aos algoritmos de recuperação de informação. O pseudo feedback de
+relevância está entre as técnicas mais populares encontradas para contorná-lo e tem apresentado
+resultados satisfatórios nos últimos anos. Com o intuito de melhorar o seu desempenho, foram propostos
+algoritmos que incorporam a informação semântica embutida em \textit{word embeddings} ao pseudo feedback de 
+relevância. Este trabalho propõe uma técnica de incorporação de \textit{word embeddings} na expansão de consultas
+que utiliza uma interpolação entre vetores treinados em uma coleção restrita aos tópicos relevantes e vetores
+com caráter mais generalista. Os resultados dos experimentos na ClueWeb12, no entanto, foram inconclusivos.
+
+\section{Motivação}
+
 A sinonímia e a polissemia são duas propriedades complexas das linguagens naturais que tendem a prejudicar o
-funcionamento das máquinas de busca. A sinonímia pode reduzir a revocação quando um termo utilizado na consulta
-se faz presente somente na forma de um sinônimo em um documento relevante. Já a polissemia pode prejudicar a precisão
-quando um único termo possui vários significados, ocasionando a revocação de documentos de conteúdo irrelevante
-para a consulta. O problema de incompatibilidade entre os termos da consulta e os termos utilizados nos documentos
+funcionamento das máquinas de busca. Quando um termo utilizado em uma consulta só se faz presente em documentos relevantes 
+na forma de um sinônimo, é provável que a revocação seja reduzida, impactando de forma negativa a
+qualidade dos resultados retornados. Já a polissemia (termos que possuem múltiplos significados) pode prejudicar 
+a precisão do algoritmo de revocação, pois sem contar com informação sobre o contexto da consulta, a máquina de busca
+fica impossibilitada de diferenciar ocorrências do termo em contextos alheios à necessidade de informação do usuário e
+ocorrências genuínas.
+
+O problema de incompatibilidade entre os termos da consulta e os termos utilizados nos documentos
 foi batizado de "Problema do Vocabulário" por Furnas et al. \cite{furnas1987}. Uma técnica simples e eficaz para atacar 
 este problema é a expansão de consultas, que consiste basicamente em expandir a consulta com novos termos que capturem
 melhor a intenção do usuário. Dentro desta perspectiva, existem vários métodos diferentes para realizar a expansão das
@@ -37,9 +52,9 @@ foram gerados por um modelo de linguagem desconhecido.
 Assumindo independência entre os k termos da consulta $ q_i $ e os termos encontrados nos documentos, 
 a seguinte estimativa para o modelo de linguagem pode ser construída:
 
-\[
+\begin{equation}\label{eq:relevance_model}
 P(t, q_1, q_2, ..., q_k) = \sum_{d \in R} P(d)P(t|d) \prod_{i=1}^{k} p(q_i|d)
-\]
+\end{equation}
 
 O Modelo de Relevância vem sendo usado de forma abrangente e tem apresentado bons resultados. Em
 contraponto, as técnicas de expansão automática de consultas também podem trazer desvantagens devido
@@ -49,47 +64,49 @@ especificidade em um sentido diferente da intenção latente do usuário. Para e
 devido ao "query drift", é necessário garantir a proximidade semântica entre a necessidade de informação do usuário
 e os termos da consulta expandida.
 
-\section{Motivação}
-
 Recentemente, desenvolvimentos na área de processamento de linguagem natural como o Word2Vec de Mikolov et al. 
 \cite{mikolov2013} tem mostrado grande efetividade em modelar a proximidade semântica entre termos e expressões.
 O Word2Vec utiliza informação contextual presente nas palavras que aparecem em torno de um termo para gerar
-vetores que representam as relações semânticas em um espaço vetorial de dimensionalidade reduzida. A similaridade
-entre os vetores gerados pelo Word2Vec pode ser utilizada para selecionar novos termos na expansão 
+vetores que representam as relações semânticas em um espaço vetorial de dimensionalidade reduzida (em comparação a
+um espaço onde cada termo é representado por um 1 em um vetor binário com o tamanho do vocabulário).
+A similaridade entre os vetores gerados pelo Word2Vec, medida pelo cosseno do ângulo entre os vetores, pode ser utilizada 
+para selecionar novos termos na expansão 
 de consultas como mostrado por Kuzi et al. \cite{kuzi2016}. Além disso, os autores apresentaram um método para
 realizar a integração dos termos selecionados com o pseudo feedback de relevância como apresentado em \cite{lavrenko2001}
-para gerar resultados ainda mais satisfatórios.
+para gerar resultados ainda mais fortes.
 
 No Word2Vec, as representações vetoriais dos termos são estáticas. Portanto, o contexto específico do discurso não é levado
 em consideração quando se calculam as relações semânticas entre os termos. Enquanto esta perspectiva generalista
-já se mostra bastante efetiva, Diaz et al. \cite{diaz2016} mostraram que vetores treinados em um conjunto restrito 
-aos tópicos relevantes para a consulta conseguem capturar melhor as relações semânticas entre os termos.
+já apresenta resultados melhores do que a expansão de termos pelo pseudo feedback de relevância, Diaz et al. \cite{diaz2016} 
+mostraram que vetores treinados em um conjunto restrito 
+aos tópicos relevantes para a consulta conseguem capturar melhor as relações semânticas entre os termos. 
 
-Este artigo propõe uma metodologia de expansão de consultas por meio da utilização de \textit{word embeddings}. 
+Este artigo propõe uma metodologia de expansão de consultas por meio da utilização de \textit{word embeddings} que 
+mescla vantagens da perspectiva generalista e da perspectiva específica.
 A técnica consiste em treinar vetores de termos com um conjunto de treino restrito à tópicos
 relevantes à consulta e interpolá-los com vetores treinados globalmente. Termos com proximidade semântica 
 aos vetores interpolados são escolhidos para promover a expansão das consultas com o intuito de melhorar os resultados 
 de busca. A hipótese principal é que alguns tipos de consulta podem tirar proveito
 de representações gerais de termos e outras de representações mais específicas. Por meio da interpolação entre os dois 
-tipos de vetores procura-se obter um resultado melhor para a expansão de consultas.
+tipos de vetores procura-se obter o melhor das duas perspectivas.
 
 \section{Modelo Base}
 
 O ranking inicial dos documentos é produzido por meio de um modelo de linguagem de unigramas baseado no modelo de 
 Ponte e Croft \cite{ponte1998} cuja representação normalmente assume a forma:
 
-\[
+\begin{equation}\label{eq:language_model}
 P(q|d) = \prod_{i}p(q_i|d)
-\]
+\end{equation}
 
 onde $ q_i $ representa o termo i da consulta e d representa um documento. Os documentos são ranqueados com base na 
 probabilidade do seu modelo de linguagem ter gerado a consulta $ P(q|d) $. É possível calcular o score dos documentos
 com base no critério de máxima verossimilhança, no entanto, vamos utilizar o método de suavização de Dirichlet \cite{lafferty2001} 
 que pode ser descrito pela fórmula:
 
-\[
+\begin{equation}\label{eq:dirichlet}
 P(w|d) = \frac{c(w;d) + \mu P(w|C)}{\sum_w c(w;d) + \mu}
-\]
+\end{equation}
 
 onde queremos estimar $ P(w|d) $, a probabilidade do modelo de linguagem do documento d gerar a palavra w. Sendo que $ c(w;d) $ 
 representa a contagem da palavra w no documento d, $ P(w|C) $ representa a probabilidade da palavra w na coleção completa C, ou seja, 
@@ -104,17 +121,17 @@ a consulta com o modelo descrito anteriormente, os primeiros D documentos são s
 e utiliza-se a seguinte fórmula para calcular a probabilidade do modelo de relevância daqueles documentos RM ter gerado cada um dos 
 termos presentes no subconjunto:
 
-\[
+\begin{equation}\label{eq:dirichlet_relevance_model}
 P(t|RM) = \sum_{d \in D} P(t|d)P(q|d)
-\]
+\end{equation}
 
-onde $ P(t|d) $ é o modelo de linguagem com suavização de Dirichlet descrito anteriormente e $ P(q|d) $ é a "query likelihood"
+onde $ P(t|d) $ é o modelo de linguagem com suavização de Dirichlet descrito anteriormente e $ P(q|d) $ é a \textit{query likelihood}
 normalizada. Os primeiros k termos são escolhidos para realizar a expansão da consulta com base em sua probabilidade $ P(t|RM) $
 e a expansão da consulta é realizada com a seguinte expressão:
 
-\[
+\begin{equation}\label{eq:query_interpolation}
 P(t|RM,q) = (1-\lambda) P(t|RM) + \lambda P(t|q)
-\]
+\end{equation}
 
 sendo que o fator $ \lambda $ simplesmente considera qual será o peso da consulta original no ranking e qual será o peso dos 
 termos novos na consulta expandida. Até aqui, este modelo representa a base para os nossos experimentos e será referido como
@@ -129,26 +146,35 @@ mostraram que esta operação preserva com bom grau de acurácias as relações 
 a centróide dos termos da consulta, queremos saber a proximidade dos demais termos da coleção com o vetor da consulta. Para isso, 
 calculamos a proximidade de cada um dos vetores da coleção com base na expressão:
 
-\[
+\begin{equation}\label{eq:vector_correlation}
 Prox(\overrightarrow{t}, \overrightarrow{cent}) = exp(cos(\overrightarrow{t}, \overrightarrow{cent}))
-\]
+\end{equation}
 
 onde $ \overrightarrow{cent} $ representa o vetor da consulta e $ \overrightarrow{t} $ representa o vetor do termo. Finalmente,
 os coeficientes de similaridade são normalizados de forma que a sua soma seja igual a 1, para que os coeficientes sejam convertidos
 em probabilidades. Chamaremos estas probabilidades de $ P(t, Word2Vec) $. Agora, resta incorporar as probabilidades calculadas 
-com o Word2Vec no nosso modelo base. Para isso, a equação do modelo de relevância se tornará:
+com o Word2Vec no nosso modelo base. Para isso, a equação \ref{eq:dirichlet_relevance_model} se tornará:
 
-\[
+\begin{equation}\label{eq:lm_with_w2vec}
 P(t|RM) = \alpha P(t, Word2Vec) + (1-\alpha) \sum_{d \in D} P(t|d)P(q|d)
-\]
+\end{equation}
 
 onde $ \alpha $ representa um fator de normalização que controlará o peso que vamos dar ao Word2Vec. Perceba que foi feita apenas 
-uma combinação linear entre as probabilidades calculadas pelo Word2Vec e as probabilidades original do modelo de relevância. O
+uma combinação linear entre as probabilidades calculadas pelo Word2Vec e as probabilidades originais do modelo de relevância. O
 resto do modelo base permanece inalterado. É importante lembrar que na consulta expandida somente serão utilizados os termos que
 apresentarem as k maiores probabilidades.
 
 Por último, a integração entre os vetores gerais e específicos será feita por meio de uma combinação linear simples entre 
-as probabilidades dos vetores.
+as probabilidades dos vetores. Nesse caso, as probabilidades relativas aos coeficientes calculados com o Word2Vec ficarâo:
+
+\begin{equation}\label{eq:lm_with_w2vec}
+P(t, Word2Vec) = \beta P(t, Word2VecG) + (1-\beta) P(t, Word2VecE)
+\end{equation}
+
+onde $ \beta $ representa o peso relativo das probabilidades calculadas pelos vetores gerais e pelos
+vetores específicos. E, $ P(t, Word2VecG) $ e $ P(t, Word2VecE) $ representam as probabilidades
+normalizadas de acordo com a equação \ref{eq:vector_correlation} calculadas com base nos vetores gerais e 
+específicos, respectivamente.
 
 \section{Experimentos}
 
@@ -156,11 +182,18 @@ Os experimentos foram realizados com base nos tópicos da TREC 2013 Web Track, q
 foram feitos no subconjunto ClueWeb12-B13 do dataset original, que contém aproximadamente 50 milhões de páginas da web coletadas
 em 2012. Os tópicos vão de 201 a 250. A implementação dos algoritmos utilizou o framework Indri (www.lemurproject.org). 
 
-Os modelos testados foram o modelo base descrito na segunda seção (LM), o modelo com vetores gerais (W2V-GENERAL), o modelo
+Os modelos testados foram: o modelo base descrito na segunda seção (LM), o modelo com vetores gerais (W2V-GENERAL), o modelo
 com vetores restritos aos tópicos das consultas (W2V-SPECIFIC) e o modelo que combina os dois anteriores (W2V-COMB). Os vetores
 gerais foram treinados em uma subcoleção do Google News com aproximadamente 100 bilhões de palavras e são disponibilizados publicamente
 em (https://code.google.com/archive/p/word2vec/). Os vetores específicos foram treinados em uma subcoleção da ClueWeb09-B13 contendo
-apenas documentos relevantes aos tópicos das consultas 201-250.
+apenas documentos relevantes aos tópicos das consultas 201-250. A coleta foi feita com base nos documentos retornados pelo
+modelo base com um total de 62.600.219 palavras e um vocabulário de 159.798 termos. Cabe ressaltar que um corpo de treino
+maior provavelmente produziria resultados mais satisfatórios, no entanto, devido a uma limitação de tempo não foi possível
+realizar os experimentos com um corpo de treino maior. 
+
+Para os modelos com incorporação do Word2Vec, os valores dos parâmetros $ \alpha $ e $ \beta $ foram mantidos em 0.5.
+Alguns testes foram feitos com valores diferentes, mas a diferença não foi significativa. Em trabalhos posteriores
+pode ser interessante otimizar os modelos com base nestes parâmetros.
 
 \begin{center}
   \begin{table}
@@ -169,10 +202,10 @@ apenas documentos relevantes aos tópicos das consultas 201-250.
     \hline
     Modelo & MAP & P@5 & P@10 & P@15 & P@20 & P@30 & P@100 \\
     \hline
-    LM & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-    W2V-GENERAL & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-    W2V-SPECIFIC & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-    W2V-COMB & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
+    LM & 0.0272 & 0.1760 & 0.1640 & 0.1533 & 0.1440 & 0.1320 & 0.0740 \\
+    W2V-GENERAL & 0.0232 & 0.1640 & 0.1380 & 0.1280 & 0.1240 & 0.1153 & 0.0688 \\
+    W2V-SPECIFIC & 0.0233 & 0.1640 & 0.1460 & 0.1267 & 0.1260 & 0.1087 & 0.0666 \\
+    W2V-COMB & 0.0234 & 0.1720 & 0.1460 & 0.1387 & 0.1280 & 0.1187 & 0.0698 \\
     \hline
   \end{tabular}
   \caption{Resultados dos modelos de expansão de consultas}
@@ -180,12 +213,60 @@ apenas documentos relevantes aos tópicos das consultas 201-250.
   \end{table}
 \end{center}
 
-Em cada um dos experimentos, foi coletado o MAP (@1000) e a precisão P@5, P@10, P@15, P@20, P@30 e P@100. Os resultados estão descritos na 
-tabela \ref{tab:experiments}.
+Em cada um dos experimentos, foi coletado o MAP (\textit{Mean Average Precision}) e a precisão média nos 
+primeiros 5, 10, 15, 20, 30 e 100 documentos (P@5,10,...). Os resultados estão descritos na tabela \ref{tab:experiments}.
+
+Todos os modelos que incorporaram informação dos \textit{word embeddings} se saíram pior do que o
+modelo base e não houve diferença significativa entre eles. No entanto, é possível observar um pequeno ganho
+dos vetores específicos em relação aos vetores gerais e um ganho também pequeno do modelo com os vetores interpolados
+em relação aos outros dois. Em suma, os resultados de \cite{kuzi2016} e \cite{diaz2016} não foram reproduzidos. A razão 
+para tal não se deu necessariamente pela falha dos modelos propostos.
+
+O desemplenho da expansão de consulta para coleções de páginas coletadas na web como a ClueWeb12-B13 normalmente
+não é tão bom quanto em outros tipos de coleção. Isto acontece porque as consultas na web normalmente visam uma
+necessidade de informação imediata e o usuário não está disposto a olhar muitas páginas, o que não seria o caso
+de uma consulta de jurisprudências por um advogado ou de um médico por diagnósticos, por exemplo. No caso dos tópicos
+201-250 para a ClueWeb12-B13, a consulta 227 "i will survive lyrics" é um exemplo desta diferença.
+
+\begin{center}
+  \begin{table}
+  \centering
+  \begin{tabular}{ | l l | }
+    \hline
+    Termo & Cosseno \\
+    \hline
+        creamy mousse & 0.577164 \\ 
+                apple & 0.576372 \\
+                berry & 0.573019 \\
+           strawberry & 0.564900 \\
+                gelee & 0.559174 \\
+    raspberry sherbet & 0.557116 \\
+          almond tart & 0.556549 \\
+            crumb pie & 0.555363 \\
+          apple jelly & 0.551767 \\
+         spiced apple & 0.551383 \\
+    \hline
+  \end{tabular}
+  \caption{Vetores mais próximos de Raspberry Pi}
+  \label{tab:raspberry_pi}
+  \end{table}
+\end{center}
+
+Um outro problema surge dos próprios vetores calculados pelo Word2Vec. A tabela \ref{tab:raspberry_pi} descreve os
+10 termos mais próximos da consulta 201 "raspberry pi" de acordo com o cálculo do Word2Vec treinado na coleção geral. 
+Pode-se perceber que os termos mais próximos se referem principalmente à frutas e sobremesas, que certamente tem proximidade com
+o termo "raspberry". No entanto, Raspberry Pi é um computador de placa única popular entre entusiastas 
+de eletrônica que guarda muito pouca semelhança com os termos retornados pelo Word2Vec. Nesse caso,
+o treinamento de unigramas não produz um resultado satisfatório, mas um treinamento de bigramas já poderia
+ajudar a solucionar o problema.
 
 \section{Conclusão}
 
-O modelo proposto se mostrou melhor pior ou igual aos originais.
+O modelo proposto mostrou resultados piores do que o \textit{benchmark}, sendo que tanto a incorporação
+de vetores globais quanto vetores específicos pioraram o desempenho do Relevance Model. O resultado
+negativo se deu principalmente por conta de características específicas da coleção de teste e limitações do Word2Vec.
+No entanto, a hipótese principal ainda precisa ser testada de forma mais profunda para garantir resultados mais
+conclusivos.
 
 \bibliography{bibliography} 
 \bibliographystyle{ieeetr}
